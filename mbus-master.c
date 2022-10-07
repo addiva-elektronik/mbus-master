@@ -462,6 +462,7 @@ static int readcmd(mbus_handle *handle)
 {
 	char *cmd, *args;
 	char line[42];
+	size_t len;
 
   	fflush(stdin);
 	printf("\033[2K\r> ");
@@ -478,12 +479,16 @@ static int readcmd(mbus_handle *handle)
 	if (args && *args == 0)
 		args = NULL;
 
+	len = strlen(cmd);
+	if (len < 1)
+		return 1;
+
 	dbg("CMD: %s ARGS: %s", cmd, args ?: "");
 	for (size_t i = 0; i < NELEMS(cmds); i++) {
 		struct cmd *c = &cmds[i];
 
 		dbg("CMP: %s vs CMD: %s", cmd, c->c_cmd);
-		if (strncmp(c->c_cmd, cmd, strlen(cmd)))
+		if (strncmp(c->c_cmd, cmd, len))
 			continue;
 
 		return c->c_cb(handle, args);
