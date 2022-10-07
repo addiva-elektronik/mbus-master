@@ -33,12 +33,23 @@ jobs:
           ref: ael
           path: libmbus
           clean: false
+      - name: Check out mbus-device
+        uses: actions/checkout@v2
+        with:
+          repository: addiva-elektronik/mbus-device
+          path: mbus-device
+          clean: false
       - name: Build libmbus
         run: |
           cd libmbus
           ./build.sh
           sudo make install
           sudo ldconfig
+      - name: Build mbus-device
+        run: |
+          cd mbus-device
+          make
+          sudo make install
       - name: Build mbus-master
         run: |
           make
