@@ -436,14 +436,13 @@ struct cmd {
 };
 
 struct cmd cmds[] = {
-	{ "request", "ADDR [ID]",   "Request data, full XML or one record",   query_device  },
-	{ "set",     "MASK ADDR",   "Set primary address",                    set_address   },
-	{ "address", NULL,          NULL,                                     set_address   },
+	{ "address", "MASK ADDR",   "Set primary address",                    set_address   },
 	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate  },
 	{ "rate",    NULL,          NULL,                                     set_baudrate  },
+	{ "request", "ADDR [ID]",   "Request data, full XML or one record",   query_device  },
 	{ NULL,      NULL,          NULL,                                     NULL          },
-	{ "scan",    NULL,          "Primary address scan",                   scan_devices  },
 	{ "probe",   "[MASK]",      "Secondary address scan",                 probe_devices },
+	{ "scan",    NULL,          "Primary address scan",                   scan_devices  },
 	{ NULL,      NULL,          NULL,                                     NULL          },
 	{ "debug",   NULL,          "Toggle debug mode",                      toggle_debug  },
 	{ "help",    "[CMD]",       "Display (this) menu",                    show_help     },
