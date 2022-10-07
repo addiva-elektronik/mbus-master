@@ -44,6 +44,20 @@ static char *device;
 static int   running = 1;
 static int   debug;
 
+
+static int mbus_debug(mbus_handle *handle, int enable)
+{
+	if (enable) {
+		mbus_register_send_event(handle, mbus_dump_send_event);
+		mbus_register_recv_event(handle, mbus_dump_recv_event);
+	} else {
+		mbus_register_send_event(handle, NULL);
+		mbus_register_recv_event(handle, NULL);
+	}
+
+	return 0;
+}
+
 /*
  * init slaves to get really the beginning of the records
  */
@@ -404,6 +418,13 @@ static int set_baudrate(mbus_handle *handle, char *args)
 	return 0;
 }
 
+static int toggle_debug(mbus_handle *handle, char *args)
+{
+	(void)args;
+	debug ^= 1;
+
+	return mbus_debug(handle, debug);
+}
 
 static int show_help(mbus_handle *handle, char *args);
 
@@ -419,6 +440,7 @@ struct cmd cmds[] = {
 	{ "set",     "MASK ADDR",   "Set primary address",                    set_address   },
 	{ "address", NULL,          NULL,                                     set_address   },
 	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate  },
+	{ "debug",   NULL,          "Toggle debug mode",                      toggle_debug  },
 	{ "rate",    NULL,          NULL,                                     set_baudrate  },
 	{ "scan",    NULL,          "Primary address scan",                   scan_devices  },
 	{ "probe",   "[MASK]",      "Secondary address scan",                 probe_devices },
@@ -588,17 +610,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (debug) {
-		mbus_register_send_event(handle, &mbus_dump_send_event);
-		mbus_register_recv_event(handle, &mbus_dump_recv_event);
-	}
-
 	if (mbus_connect(handle) == -1)
 		errx(1, "Failed opening serial port %s: %s", device, mbus_error_str());
 
 	if (rate && set_baudrate(handle, rate))
 		goto error;
 
+	mbus_debug(handle, debug);
 	while (running)
 		readcmd(handle);
 
