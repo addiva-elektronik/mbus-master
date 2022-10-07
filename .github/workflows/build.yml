@@ -37,8 +37,8 @@ jobs:
         run: |
           cd libmbus
           ./build.sh
-          make install
-          ldconfig
+          sudo make install
+          sudo ldconfig
       - name: Build mbus-master
         run: |
           make
