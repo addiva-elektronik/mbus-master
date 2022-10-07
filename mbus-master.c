@@ -211,9 +211,11 @@ static int query_device(mbus_handle *handle, char *args)
 	mbus_frame_data data;
 	mbus_frame reply;
 	char *xml_data;
+	char *addr_arg;
 	int address;
 
-	address = parse_addr(handle, args);
+	addr_arg = strsep(&args, " \n\t");
+	address = parse_addr(handle, addr_arg);
 	if (mbus_send_request_frame(handle, address) == -1) {
 		warnx("failed sending M-Bus request to %d.", address);
 		return 1;
@@ -224,35 +226,63 @@ static int query_device(mbus_handle *handle, char *args)
 		return 1;
 	}
 
-	if (debug) {
-		mbus_frame_print(&reply);
-	}
-
 	if (mbus_frame_data_parse(&reply, &data) == -1) {
 		warnx("M-bus data parse error: %s", mbus_error_str());
 		return 1;
 	}
 
-	/* generate XML and print to standard output */
-	if (!(xml_data = mbus_frame_data_xml(&data))) {
-		warnx("failed generating XML output of M-BUS response: %s", mbus_error_str());
-		return 1;
+	if (!args) {
+		/* Dump entire response as XML */
+		if (!(xml_data = mbus_frame_data_xml(&data))) {
+			warnx("failed generating XML output of M-BUS response: %s", mbus_error_str());
+			return 1;
+		}
+
+		printf("%s", xml_data);
+		free(xml_data);
+
+		if (data.data_var.record)
+			mbus_data_record_free(data.data_var.record);
+	} else {
+		int record_id;
+
+		/* Query for a single record */
+		record_id = atoi(args);
+
+		if (data.type == MBUS_DATA_TYPE_FIXED) {
+			/* TODO: Implement this -- Not fixed in BCT --Jachim */
+		}
+		if (data.type == MBUS_DATA_TYPE_VARIABLE) {
+			mbus_data_record *record;
+			int i;
+
+			for (record = data.data_var.record, i = 0; record; record = record->next, i++) {
+				dbg("Record ID %d DIF %02x VID %02x", i,
+				    record->drh.dib.dif & MBUS_DATA_RECORD_DIF_MASK_DATA,
+				    record->drh.vib.vif & MBUS_DIB_VIF_WITHOUT_EXTENSION);
+			}
+
+			for (record = data.data_var.record, i = 0; record && i < record_id; record = record->next, i++)
+				;
+
+			if (i != record_id) {
+				if (data.data_var.record)
+					mbus_data_record_free(data.data_var.record);
+
+				mbus_frame_free(reply.next);
+				return 1;
+			}
+
+			uint32_t value;
+			if (mbus_variable_value_decode_32(record, &value) == 0)
+				log("Record ID %d = %u", record_id, value);
+
+			if (data.data_var.record)
+				mbus_data_record_free(data.data_var.record);
+		}
+		mbus_frame_free(reply.next);
 	}
 
-	printf("%s", xml_data);
-
-	free(xml_data);
-	if (data.data_var.record) {
-		mbus_data_record_free(data.data_var.record);
-	}
-
-	return 0;
-}
-
-static int read_device(mbus_handle *handle, char *args)
-{
-	(void)handle;
-	(void)args;
 	return 0;
 }
 
@@ -385,8 +415,7 @@ struct cmd {
 };
 
 struct cmd cmds[] = {
-	{ "request", "ADDR",        "Request device data (full XML output)",  query_device  },
-	{ "read",    "ADDR ID",     "Read single record from device",         read_device   },
+	{ "request", "ADDR [ID]",   "Request data, full XML or one record",   query_device  },
 	{ "set",     "MASK ADDR",   "Set primary address",                    set_address   },
 	{ "address", NULL,          NULL,                                     set_address   },
 	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate  },
