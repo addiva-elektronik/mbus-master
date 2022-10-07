@@ -408,12 +408,12 @@ static int show_help(mbus_handle *handle, char *args)
 
 		dbg("Looking for help to command '%s'", args);
 		for (size_t i = 0; i < NELEMS(cmds); i++) {
+			struct cmd *c = &cmds[i];
 
-			if (strncmp(cmds[i].c_cmd, args, len))
+			if (strncmp(c->c_cmd, args, len))
 				continue;
 
-			printf("%s %s      # %s\n", cmds[i].c_cmd,
-			       cmds[i].c_arg ?: "", cmds[i].c_desc);
+			printf("%s %s      # %s\n", c->c_cmd, c->c_arg ?: "", c->c_desc);
 			return 0;
 		}
 
@@ -429,11 +429,12 @@ static int show_help(mbus_handle *handle, char *args)
 	}
 
 	for (size_t i = 0; i < NELEMS(cmds); i++) {
-		if (!cmds[i].c_desc) /* alias */
+		struct cmd *c = &cmds[i];
+
+		if (!c->c_desc) /* alias */
 			continue;
 
-		printf("%-*s %-10s  %s\n", w, cmds[i].c_cmd,
-		       cmds[i].c_arg ?: "", cmds[i].c_desc);
+		printf("%-*s %-10s  %s\n", w, c->c_cmd, c->c_arg ?: "", c->c_desc);
 	}
 
 	return 0;
