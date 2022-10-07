@@ -440,10 +440,12 @@ struct cmd cmds[] = {
 	{ "set",     "MASK ADDR",   "Set primary address",                    set_address   },
 	{ "address", NULL,          NULL,                                     set_address   },
 	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate  },
-	{ "debug",   NULL,          "Toggle debug mode",                      toggle_debug  },
 	{ "rate",    NULL,          NULL,                                     set_baudrate  },
+	{ NULL,      NULL,          NULL,                                     NULL          },
 	{ "scan",    NULL,          "Primary address scan",                   scan_devices  },
 	{ "probe",   "[MASK]",      "Secondary address scan",                 probe_devices },
+	{ NULL,      NULL,          NULL,                                     NULL          },
+	{ "debug",   NULL,          "Toggle debug mode",                      toggle_debug  },
 	{ "help",    "[CMD]",       "Display (this) menu",                    show_help     },
 	{ "quit",    NULL,          "Quit",                                   quit_program  },
 };
@@ -461,10 +463,16 @@ static int show_help(mbus_handle *handle, char *args)
 		for (size_t i = 0; i < NELEMS(cmds); i++) {
 			struct cmd *c = &cmds[i];
 
+			if (!c->c_cmd)
+				continue;
+
 			if (strncmp(c->c_cmd, args, len))
 				continue;
 
-			printf("%s %s      # %s\n", c->c_cmd, c->c_arg ?: "", c->c_desc);
+			printf("Usage:\n"
+			       "\t%s %s\n\n", c->c_cmd, c->c_arg ?: "");
+			printf("Description:\n"
+			       "\t%s\n", c->c_desc);
 			return 0;
 		}
 
@@ -473,8 +481,12 @@ static int show_help(mbus_handle *handle, char *args)
 	}
 
 	for (size_t i = 0; i < NELEMS(cmds); i++) {
-		int len = (int)strlen(cmds[i].c_cmd);
+		int len;
 
+		if (!cmds[i].c_cmd)
+			continue;
+
+		len = (int)strlen(cmds[i].c_cmd);
 		if (len > w)
 			w = len;
 	}
@@ -482,10 +494,14 @@ static int show_help(mbus_handle *handle, char *args)
 	for (size_t i = 0; i < NELEMS(cmds); i++) {
 		struct cmd *c = &cmds[i];
 
-		if (!c->c_desc) /* alias */
+		if (!c->c_cmd) { /* separator */
+			puts("");
+			continue;
+		}
+		if (!c->c_desc)  /* alias */
 			continue;
 
-		printf("%-*s %-10s  %s\n", w, c->c_cmd, c->c_arg ?: "", c->c_desc);
+		printf("%-*s %-12s  %s\n", w, c->c_cmd, c->c_arg ?: "", c->c_desc);
 	}
 
 	return 0;
@@ -537,6 +553,9 @@ static int readcmd(mbus_handle *handle)
 	dbg("CMD: %s ARGS: %s", cmd, args ?: "");
 	for (size_t i = 0; i < NELEMS(cmds); i++) {
 		struct cmd *c = &cmds[i];
+
+		if (!c->c_cmd)
+			continue;
 
 		dbg("CMP: %s vs CMD: %s", cmd, c->c_cmd);
 		if (strncmp(c->c_cmd, cmd, len))
