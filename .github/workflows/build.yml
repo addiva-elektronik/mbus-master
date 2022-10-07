@@ -1,0 +1,44 @@
+name: Bob the Builder
+
+# Run on all branches, including all pull requests, except the 'dev'
+# branch since that's where we run Coverity Scan (limited tokens/day)
+on:
+  push:
+    branches:
+      - '**'
+      - '!dev'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    # Verify we can build on latest Ubuntu with both gcc and clang
+    name: ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+      fail-fast: false
+    env:
+      MAKEFLAGS: -j3
+      CC: ${{ matrix.compiler }}
+    steps:
+      - name: Check out mbus-master
+        uses: actions/checkout@v2
+      - name: Check out libmbus @ael
+        uses: actions/checkout@v2
+        with:
+          repository: addiva-elektronik/libmbus
+          ref: ael
+          path: libmbus
+          clean: false
+      - name: Build libmbus
+        run: |
+          cd libmbus
+          ./build.sh
+          make install
+          ldconfig
+      - name: Build mbus-master
+        run: |
+          make
