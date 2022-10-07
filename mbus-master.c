@@ -356,7 +356,6 @@ static int set_address(mbus_handle *handle, char *args)
 			return 1;
 		}
 
-		memset(&reply, 0, sizeof(mbus_frame));
 		if (mbus_recv_frame(handle, &reply) == MBUS_RECV_RESULT_TIMEOUT) {
 			if (retries > 1)
 				continue;
@@ -364,6 +363,7 @@ static int set_address(mbus_handle *handle, char *args)
 			warnx("No reply from device [%s].", mask);
 			return 1;
 		}
+		break;
 	}
 
 	if (mbus_frame_type(&reply) != MBUS_FRAME_TYPE_ACK) {
