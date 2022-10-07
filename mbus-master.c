@@ -54,11 +54,9 @@ static int init_slaves(mbus_handle *handle)
 		warnx("Failed initializing M-Bus slaves.");
 		return -1;
 	}
-	usleep(300000);
 
 	if (mbus_send_ping_frame(handle, MBUS_ADDRESS_BROADCAST_NOREPLY, 1) == -1)
 		goto error;
-	usleep(300000);
 
 	return 0;
 }
@@ -80,7 +78,6 @@ static int ping_address(mbus_handle *handle, mbus_frame *reply, int address)
 			return MBUS_RECV_RESULT_ERROR;
 		}
 
-		usleep(500000);
 		rc = mbus_recv_frame(handle, reply);
 		if (rc != MBUS_RECV_RESULT_TIMEOUT)
 			return rc;
@@ -102,10 +99,8 @@ static int mbus_scan_1st_address_range(mbus_handle *handle)
 			break;
 
 		rc = ping_address(handle, &reply, address);
-		if (rc == MBUS_RECV_RESULT_TIMEOUT) {
-			usleep(300000);
+		if (rc == MBUS_RECV_RESULT_TIMEOUT)
 			continue;
-		}
 
 		if (rc == MBUS_RECV_RESULT_INVALID) {
 			mbus_purge_frames(handle);
@@ -200,7 +195,6 @@ int parse_addr(mbus_handle *handle, char *args)
 		if (secondary_select(handle, args) == -1)
 			return 1;
 		address = MBUS_ADDRESS_NETWORK_LAYER;
-		usleep(300000);
 	} else {
 		address = atoi(args);
 		if (address < 1 || address > 255) {
@@ -225,7 +219,6 @@ static int query_device(mbus_handle *handle, char *args)
 		return 1;
 	}
 
-	usleep(500000);
 	if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_OK) {
 		warnx("failed receiving M-Bus response from %d.", address);
 		return 1;
@@ -302,18 +295,15 @@ static int set_address(mbus_handle *handle, char *args)
 		warnx("failed sending verification ping: %s", mbus_error_str());
 		return 1;
 	}
-	usleep(300000);
 
 	if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_TIMEOUT) {
 		warnx("verification failed, primary address [%d] already in use.", next);
 		return 1;
 	}
-	usleep(300000);
 
 	if (curr == MBUS_ADDRESS_NETWORK_LAYER) {
 		if (secondary_select(handle, mask) == -1)
 			return 1;
-		usleep(500000);
 	}
 
 	for (int retries = 3; retries > 0; retries--) {
@@ -324,10 +314,8 @@ static int set_address(mbus_handle *handle, char *args)
 
 		memset(&reply, 0, sizeof(mbus_frame));
 		if (mbus_recv_frame(handle, &reply) == MBUS_RECV_RESULT_TIMEOUT) {
-			if (retries > 1) {
-				usleep(300000);
+			if (retries > 1)
 				continue;
-			}
 
 			warnx("No reply from device [%s].", mask);
 			return 1;
