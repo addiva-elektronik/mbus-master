@@ -10,13 +10,6 @@ builds on [libmbus][1] and provides enough functionality to:
  - Request data from primary address
 
 
-TODO
-----
-
- - Add scripting support, for running a test program/file
- - Read single record
-
-
 Build & Install
 ---------------
 
