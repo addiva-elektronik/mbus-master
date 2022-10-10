@@ -268,16 +268,17 @@ static int query_device(mbus_handle *handle, char *args)
 			/* TODO: Implement this -- Not fixed in BCT --Jachim */
 		}
 		if (data.type == MBUS_DATA_TYPE_VARIABLE) {
-			mbus_data_record *record;
+			mbus_data_record *entry;
+			mbus_record *record;
 			int i;
 
-			for (record = data.data_var.record, i = 0; record; record = record->next, i++) {
+			for (entry = data.data_var.record, i = 0; entry; entry = entry->next, i++) {
 				dbg("Record ID %d DIF %02x VID %02x", i,
-				    record->drh.dib.dif & MBUS_DATA_RECORD_DIF_MASK_DATA,
-				    record->drh.vib.vif & MBUS_DIB_VIF_WITHOUT_EXTENSION);
+				    entry->drh.dib.dif & MBUS_DATA_RECORD_DIF_MASK_DATA,
+				    entry->drh.vib.vif & MBUS_DIB_VIF_WITHOUT_EXTENSION);
 			}
 
-			for (record = data.data_var.record, i = 0; record && i < record_id; record = record->next, i++)
+			for (entry = data.data_var.record, i = 0; entry && i < record_id; entry = entry->next, i++)
 				;
 
 			if (i != record_id) {
@@ -288,9 +289,13 @@ static int query_device(mbus_handle *handle, char *args)
 				return 1;
 			}
 
-			uint32_t value;
-			if (mbus_variable_value_decode_32(record, &value) == 0)
-				log("Record ID %d = %u", record_id, value);
+			record = mbus_parse_variable_record(entry);
+			if (record) {
+				if (record->is_numeric)
+					printf("%lf\n", record->value.real_val);
+				else
+					printf("%s\n", record->value.str_val.value);
+			}
 
 			if (data.data_var.record)
 				mbus_data_record_free(data.data_var.record);
