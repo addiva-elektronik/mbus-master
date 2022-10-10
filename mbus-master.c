@@ -44,6 +44,8 @@ static char *device;
 static int   running = 1;
 static int   interactive = 1;
 static int   debug;
+static int   verbose;
+static int   xml;
 
 
 static int mbus_debug(mbus_handle *handle, int enable)
@@ -225,7 +227,6 @@ static int query_device(mbus_handle *handle, char *args)
 {
 	mbus_frame_data data;
 	mbus_frame reply;
-	char *xml_data;
 	char *addr_arg;
 	int address;
 
@@ -241,6 +242,11 @@ static int query_device(mbus_handle *handle, char *args)
 		return 1;
 	}
 
+	if (!args && !verbose && !xml) {
+		mbus_hex_dump("RAW:", (const char *)reply.data, reply.data_size);
+		return 0;
+	}
+
 	if (mbus_frame_data_parse(&reply, &data) == -1) {
 		warnx("M-bus data parse error: %s", mbus_error_str());
 		return 1;
@@ -248,13 +254,19 @@ static int query_device(mbus_handle *handle, char *args)
 
 	if (!args) {
 		/* Dump entire response as XML */
-		if (!(xml_data = mbus_frame_data_xml(&data))) {
-			warnx("failed generating XML output of M-BUS response: %s", mbus_error_str());
-			return 1;
-		}
+		if (xml) {
+			char *xml_data;
 
-		printf("%s", xml_data);
-		free(xml_data);
+			if (!(xml_data = mbus_frame_data_xml(&data))) {
+				warnx("failed generating XML output of M-BUS response: %s", mbus_error_str());
+				return 1;
+			}
+
+			printf("%s", xml_data);
+			free(xml_data);
+		} else {
+			mbus_frame_data_print(&data);
+		}
 
 		if (data.data_var.record)
 			mbus_data_record_free(data.data_var.record);
@@ -273,7 +285,7 @@ static int query_device(mbus_handle *handle, char *args)
 			int i;
 
 			for (entry = data.data_var.record, i = 0; entry; entry = entry->next, i++) {
-				dbg("Record ID %d DIF %02x VID %02x", i,
+				dbg("record ID %d DIF %02x VID %02x", i,
 				    entry->drh.dib.dif & MBUS_DATA_RECORD_DIF_MASK_DATA,
 				    entry->drh.vib.vif & MBUS_DIB_VIF_WITHOUT_EXTENSION);
 			}
@@ -292,9 +304,13 @@ static int query_device(mbus_handle *handle, char *args)
 			record = mbus_parse_variable_record(entry);
 			if (record) {
 				if (record->is_numeric)
-					printf("%lf\n", record->value.real_val);
+					printf("%lf", record->value.real_val);
 				else
-					printf("%s\n", record->value.str_val.value);
+					printf("%s", record->value.str_val.value);
+				if (verbose)
+					printf(" %s\n", record->unit);
+				else
+					printf("\n");
 			}
 
 			if (data.data_var.record)
@@ -424,12 +440,33 @@ static int set_baudrate(mbus_handle *handle, char *args)
 	return 0;
 }
 
+#define ENABLED(v) v ? "enabled" : "disabled"
+
 static int toggle_debug(mbus_handle *handle, char *args)
 {
 	(void)args;
 	debug ^= 1;
+	log("debug mode %s", ENABLED(debug));
 
 	return mbus_debug(handle, debug);
+}
+
+static int toggle_verbose(mbus_handle *handle, char *args)
+{
+	(void)args;
+	verbose ^= 1;
+	log("verbose output %s", ENABLED(verbose));
+
+	return 0;
+}
+
+static int toggle_xml(mbus_handle *handle, char *args)
+{
+	(void)args;
+	xml ^= 1;
+	log("XML output %s", ENABLED(xml));
+
+	return 0;
 }
 
 static int show_help(mbus_handle *handle, char *args);
@@ -442,17 +479,19 @@ struct cmd {
 };
 
 struct cmd cmds[] = {
-	{ "address", "MASK ADDR",   "Set primary address",                    set_address   },
-	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate  },
-	{ "rate",    NULL,          NULL,                                     set_baudrate  },
-	{ "request", "ADDR [ID]",   "Request data, full XML or one record",   query_device  },
-	{ NULL,      NULL,          NULL,                                     NULL          },
-	{ "probe",   "[MASK]",      "Secondary address scan",                 probe_devices },
-	{ "scan",    NULL,          "Primary address scan",                   scan_devices  },
-	{ NULL,      NULL,          NULL,                                     NULL          },
-	{ "debug",   NULL,          "Toggle debug mode",                      toggle_debug  },
-	{ "help",    "[CMD]",       "Display (this) menu",                    show_help     },
-	{ "quit",    NULL,          "Quit",                                   quit_program  },
+	{ "address", "MASK ADDR",   "Set primary address",                    set_address    },
+	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate   },
+	{ "rate",    NULL,          NULL,                                     set_baudrate   },
+	{ "request", "ADDR [ID]",   "Request data, full XML or one record",   query_device   },
+	{ NULL,      NULL,          NULL,                                     NULL           },
+	{ "probe",   "[MASK]",      "Secondary address scan",                 probe_devices  },
+	{ "scan",    NULL,          "Primary address scan",                   scan_devices   },
+	{ NULL,      NULL,          NULL,                                     NULL           },
+	{ "debug",   NULL,          "Toggle debug mode",                      toggle_debug   },
+	{ "verbose", NULL,          "Toggle verbose output",                  toggle_verbose },
+	{ "xml",     NULL,          "Toggle XML output",                      toggle_xml     },
+	{ "help",    "[CMD]",       "Display (this) menu",                    show_help      },
+	{ "quit",    NULL,          "Quit",                                   quit_program   },
 };
 
 static int show_help(mbus_handle *handle, char *args)
@@ -591,6 +630,8 @@ static int usage(int rc)
 		" -b RATE    Set baudrate: 300, 2400, 9600, default: 2400\n"
 		" -d         Enable debug messages\n"
 		" -f FILE    Execute commands from file and then exit\n"
+		" -v         Verbose output (where applicable)\n"
+		" -x         XML output (where applicable)\n"
 		"Arguments:\n"
 		" DEVICE     Serial port/pty to use\n"
 		"\n"
@@ -613,7 +654,7 @@ int main(int argc, char **argv)
 	signal(SIGHUP, sigcb);
 	signal(SIGTERM, sigcb);
 
-	while ((c = getopt(argc, argv, "b:df:")) != EOF) {
+	while ((c = getopt(argc, argv, "b:df:vx")) != EOF) {
 		switch (c) {
 		case 'b':
 			rate = optarg;
@@ -623,6 +664,12 @@ int main(int argc, char **argv)
 			break;
 		case 'f':
 			file = optarg;
+			break;
+		case 'v':
+			verbose = 1;
+			break;
+		case 'x':
+			xml = 1;
 			break;
 		default:
 			return usage(0);
