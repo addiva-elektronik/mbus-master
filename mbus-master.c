@@ -42,6 +42,7 @@
 static char *arg0 = "mbus-master";
 static char *device;
 static int   running = 1;
+static int   interactive = 1;
 static int   debug;
 
 
@@ -524,17 +525,19 @@ char *chompy(char *str)
 	return str;
 }
 
-static int readcmd(mbus_handle *handle)
+static int readcmd(FILE *fp, mbus_handle *handle)
 {
 	char *cmd, *args;
 	char line[42];
 	size_t len;
 
-  	fflush(stdin);
-	printf("\033[2K\r> ");
-	fflush(stdout);
+	if (interactive) {
+		fflush(fp);
+		printf("\033[2K\r> ");
+		fflush(stdout);
+	}
 
-	if (!(args = fgets(line, sizeof(line), stdin)))
+	if (!(args = fgets(line, sizeof(line), fp)))
 		return -1;
 
 	args = chompy(args);
@@ -582,6 +585,7 @@ static int usage(int rc)
 		"Options:\n"
 		" -b RATE    Set baudrate: 300, 2400, 9600, default: 2400\n"
 		" -d         Enable debug messages\n"
+		" -f FILE    Execute commands from file and then exit\n"
 		"Arguments:\n"
 		" DEVICE     Serial port/pty to use\n"
 		"\n"
@@ -593,7 +597,9 @@ static int usage(int rc)
 int main(int argc, char **argv)
 {
 	mbus_handle *handle;
+	char *file = NULL;
 	char *rate = NULL;
+	FILE *fp = stdin;
 #ifndef __ZEPHYR__
 	int c;
 
@@ -602,13 +608,16 @@ int main(int argc, char **argv)
 	signal(SIGHUP, sigcb);
 	signal(SIGTERM, sigcb);
 
-	while ((c = getopt(argc, argv, "b:d")) != EOF) {
+	while ((c = getopt(argc, argv, "b:df:")) != EOF) {
 		switch (c) {
 		case 'b':
 			rate = optarg;
 			break;
 		case 'd':
 			debug = 1;
+			break;
+		case 'f':
+			file = optarg;
 			break;
 		default:
 			return usage(0);
@@ -621,7 +630,13 @@ int main(int argc, char **argv)
 #else
 	device = uart0;
 #endif
-	
+	if (file) {
+		fp = fopen(file, "r");
+		if (!fp)
+			err(1, "failed opening %s for reading", file);
+	}
+	interactive = isatty(fileno(fp));
+
 	handle = mbus_context_serial(device);
 	if (!handle) {
 		warnx("Failed initializing M-Bus context: %s", mbus_error_str());
@@ -635,10 +650,16 @@ int main(int argc, char **argv)
 		goto error;
 
 	mbus_debug(handle, debug);
-	while (running)
-		readcmd(handle);
+	while (running) {
+		if (readcmd(fp, handle)) {
+			if (!interactive && feof(fp))
+				break;
+		}
+	}
 
 error:
+	if (file)
+		fclose(fp);
 	mbus_disconnect(handle);
 	mbus_context_free(handle);
 
