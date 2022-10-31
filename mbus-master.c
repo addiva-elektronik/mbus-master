@@ -634,6 +634,7 @@ static int usage(int rc)
 		" -b RATE    Set baudrate: 300, 2400, 9600, default: 2400\n"
 		" -d         Enable debug messages\n"
 		" -f FILE    Execute commands from file and then exit\n"
+		" -p         Disable parity bit => 8N1, default: 8E1\n"
 		" -v         Verbose output (where applicable)\n"
 		" -x         XML output (where applicable)\n"
 		"Arguments:\n"
@@ -650,6 +651,7 @@ int main(int argc, char **argv)
 	char *file = NULL;
 	char *rate = NULL;
 	FILE *fp = stdin;
+	int parity = 1;
 #ifndef __ZEPHYR__
 	int c;
 
@@ -658,7 +660,7 @@ int main(int argc, char **argv)
 	signal(SIGHUP, sigcb);
 	signal(SIGTERM, sigcb);
 
-	while ((c = getopt(argc, argv, "b:df:vx")) != EOF) {
+	while ((c = getopt(argc, argv, "b:df:pvx")) != EOF) {
 		switch (c) {
 		case 'b':
 			rate = optarg;
@@ -668,6 +670,9 @@ int main(int argc, char **argv)
 			break;
 		case 'f':
 			file = optarg;
+			break;
+		case 'p':
+			parity = 0;
 			break;
 		case 'v':
 			verbose = 1;
@@ -704,6 +709,9 @@ int main(int argc, char **argv)
 
 	if (rate && set_baudrate(handle, rate))
 		goto error;
+
+	if (!parity)
+		mbus_serial_set_parity(handle, 0);
 
 	mbus_debug(handle, debug);
 	while (running) {
