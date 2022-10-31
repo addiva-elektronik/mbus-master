@@ -68,7 +68,7 @@ static int init_slaves(mbus_handle *handle)
 {
 	if (mbus_send_ping_frame(handle, MBUS_ADDRESS_NETWORK_LAYER, 1) == -1) {
 	error:
-		warnx("Failed initializing M-Bus slaves.");
+		warnx("Failed initializing M-Bus slaves: %s", mbus_error_str());
 		return -1;
 	}
 
@@ -91,7 +91,7 @@ static int ping_address(mbus_handle *handle, mbus_frame *reply, int address)
 		}
 
 		if (mbus_send_ping_frame(handle, address, 0) == -1) {
-			warn("scan failed.  Failed sending ping frame: %s", mbus_error_str());
+			warnx("Failed sending ping frame: %s", mbus_error_str());
 			return MBUS_RECV_RESULT_ERROR;
 		}
 
@@ -242,7 +242,7 @@ static int query_device(mbus_handle *handle, char *args)
 	}
 
 	if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_OK) {
-		warnx("failed receiving M-Bus response from %d.", address);
+		warn("failed receiving M-Bus response from %d, %s", address, mbus_error_str());
 		return 1;
 	}
 
@@ -281,7 +281,7 @@ static int query_device(mbus_handle *handle, char *args)
 		record_id = atoi(args);
 
 		if (data.type == MBUS_DATA_TYPE_FIXED) {
-			/* TODO: Implement this -- Not fixed in BCT --Jachim */
+			/* TODO: Implement this -- Not fixed in BCT --Joachim */
 		}
 		if (data.type == MBUS_DATA_TYPE_VARIABLE) {
 			mbus_data_record *entry;
@@ -367,7 +367,7 @@ static int set_address(mbus_handle *handle, char *args)
 	}
 
 	if (mbus_recv_frame(handle, &reply) != MBUS_RECV_RESULT_TIMEOUT) {
-		warnx("verification failed, primary address [%d] already in use.", next);
+		warn("verification failed, primary address [%d] already in use, %s", next, mbus_error_str());
 		return 1;
 	}
 
@@ -386,7 +386,7 @@ static int set_address(mbus_handle *handle, char *args)
 			if (retries > 1)
 				continue;
 
-			warnx("No reply from device [%s].", mask);
+			warnx("No reply from device [%s], %s", mask, mbus_error_str());
 			return 1;
 		}
 		break;
@@ -700,7 +700,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mbus_connect(handle) == -1)
-		errx(1, "Failed opening serial port %s: %s", device, mbus_error_str());
+		errx(1, "%s", mbus_error_str());
 
 	if (rate && set_baudrate(handle, rate))
 		goto error;
