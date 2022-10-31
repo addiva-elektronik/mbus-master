@@ -110,7 +110,6 @@ static int mbus_scan_1st_address_range(mbus_handle *handle)
 
 	for (address = 0; address <= MBUS_MAX_PRIMARY_SLAVES; address++) {
 		mbus_frame reply;
-		int rc;
 
 		if (!running)
 			break;
@@ -123,6 +122,11 @@ static int mbus_scan_1st_address_range(mbus_handle *handle)
 			mbus_purge_frames(handle);
 			warnx("collision at address %d.", address);
 			continue;
+		}
+
+		if (rc == MBUS_RECV_RESULT_ERROR) {
+			warn("failed scanning primary addresses, %s", mbus_error_str());
+			break;
 		}
 
 		if (mbus_frame_type(&reply) == MBUS_FRAME_TYPE_ACK) {
