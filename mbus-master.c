@@ -43,6 +43,7 @@ static char *arg0 = "mbus-master";
 static char *device;
 static int   running = 1;
 static int   interactive = 1;
+static int   parity = 1;
 static int   debug;
 static int   verbose;
 static int   xml;
@@ -444,6 +445,16 @@ static int set_baudrate(mbus_handle *handle, char *args)
 	return 0;
 }
 
+static int toggle_parity(mbus_handle *handle, char *args)
+{
+	(void)args;
+	parity ^= 1;
+	log("parity %s", parity ? "even" : "disabled");
+
+	return mbus_serial_set_parity(handle, !parity ? 0 : 2);
+}
+
+
 #define ENABLED(v) v ? "enabled" : "disabled"
 
 static int toggle_debug(mbus_handle *handle, char *args)
@@ -486,6 +497,7 @@ struct cmd cmds[] = {
 	{ "address", "MASK ADDR",   "Set primary address",                    set_address    },
 	{ "baud",    "[ADDR] RATE", "Set (device) baud rate [300,2400,9600]", set_baudrate   },
 	{ "rate",    NULL,          NULL,                                     set_baudrate   },
+	{ "parity",  NULL,          "Toggle serial line parity bit",          toggle_parity  },
 	{ "request", "ADDR [ID]",   "Request data, full XML or one record",   query_device   },
 	{ NULL,      NULL,          NULL,                                     NULL           },
 	{ "probe",   "[MASK]",      "Secondary address scan",                 probe_devices  },
@@ -651,7 +663,6 @@ int main(int argc, char **argv)
 	char *file = NULL;
 	char *rate = NULL;
 	FILE *fp = stdin;
-	int parity = 1;
 #ifndef __ZEPHYR__
 	int c;
 
