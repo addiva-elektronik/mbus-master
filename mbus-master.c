@@ -196,7 +196,7 @@ static int secondary_select(mbus_handle *handle, char *mask)
 	return MBUS_ADDRESS_NETWORK_LAYER;
 }
 
-int parse_addr(mbus_handle *handle, char *args)
+static int parse_addr(mbus_handle *handle, char *args)
 {
 	int address;
 
@@ -552,7 +552,7 @@ static int show_help(mbus_handle *handle, char *args)
 }
 
 /* drop leading whitespace and any/all newlines */
-char *chompy(char *str)
+static char *chompy(char *str)
 {
 	char *p;
 
