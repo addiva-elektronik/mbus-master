@@ -48,6 +48,39 @@ static int   debug;
 static int   verbose;
 static int   xml;
 
+#define REG_NUM_MAX 50
+struct reg {
+	int   primary;
+	char *secondary;
+};
+static size_t num = 0;
+static struct reg registry[REG_NUM_MAX];
+
+static int reg_find_secondary(const char *secondary)
+{
+	for (size_t i = 0; i < num; i++) {
+		if (strcmp(registry[i].secondary, secondary))
+			continue;
+
+		return i;
+	}
+
+	return -1;
+}
+
+static int reg_add(const char *secondary)
+{
+	if (num >= REG_NUM_MAX)
+		return -1;
+	if (reg_find_secondary(secondary) >= 0)
+		return 0;	/* already */
+
+	registry[num].secondary = strdup(secondary);
+	num++;
+
+	return 0;
+}
+
 
 static int mbus_debug(mbus_handle *handle, int enable)
 {
@@ -154,6 +187,14 @@ static int scan_devices(mbus_handle *handle, char *args)
 	return mbus_scan_1st_address_range(handle);
 }
 
+static int found_device(const char *addr, const char *mask)
+{
+	if (reg_add(addr))
+		log("Found %s with address mask %s\n", addr, mask);
+
+	return 0;
+}
+
 static int probe_devices(mbus_handle *handle, char *args)
 {
 	char *mask = "FFFFFFFFFFFFFFFF";
@@ -169,7 +210,15 @@ static int probe_devices(mbus_handle *handle, char *args)
 		return 1;
 	}
 
-	return mbus_scan_2nd_address_range(handle, 0, mask);
+	if (mbus_probe_secondary_range(handle, 0, mask, found_device)) {
+		warnx("failed probe, %s", mbus_error_str());
+		return 1;
+	}
+
+	for (size_t i = 0; i < num; i++)
+		printf("%3d  %s\n", registry[i].primary, registry[i].secondary);
+
+	return 0;
 }
 
 static int quit_program(mbus_handle *handle, char *args)
@@ -331,6 +380,7 @@ static int set_address(mbus_handle *handle, char *args)
 {
 	mbus_frame reply;
 	int curr, next;
+	int id = -1;
 	char *mask;
 
 	if (!args) {
@@ -344,6 +394,7 @@ static int set_address(mbus_handle *handle, char *args)
 		goto syntax;
 
 	if (!mbus_is_secondary_address(mask)) {
+		id = -1;
 		curr = atoi(mask);
 		if (curr < 0 || curr > 250) {
 			warnx("invalid secondary address [%s], also not a primary address (0-250).", args);
@@ -351,6 +402,7 @@ static int set_address(mbus_handle *handle, char *args)
 		}
 	} else {
 		curr = MBUS_ADDRESS_NETWORK_LAYER;
+		id = reg_find_secondary(mask);
 	}
 
 	next = atoi(args);
@@ -400,6 +452,8 @@ static int set_address(mbus_handle *handle, char *args)
 	}
 
 	dbg("primary address of device %s set to %d", mask, next);
+	if (id > -1 && id < REG_NUM_MAX)
+		registry[id].primary = next;
 
 	return 0;
 }
