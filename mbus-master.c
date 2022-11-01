@@ -187,7 +187,7 @@ static int scan_devices(mbus_handle *handle, char *args)
 	return mbus_scan_1st_address_range(handle);
 }
 
-static int found_device(const char *addr, const char *mask)
+static int found_device(void *arg, const char *addr, const char *mask)
 {
 	if (reg_add(addr))
 		log("Found %s with address mask %s\n", addr, mask);
@@ -210,7 +210,7 @@ static int probe_devices(mbus_handle *handle, char *args)
 		return 1;
 	}
 
-	if (mbus_probe_secondary_range(handle, 0, mask, found_device)) {
+	if (mbus_probe_secondary_range(handle, 0, mask, found_device, NULL)) {
 		warnx("failed probe, %s", mbus_error_str());
 		return 1;
 	}
